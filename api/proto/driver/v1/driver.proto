@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package driver.v1;
+
+option go_package = "uber-clone/pkg/driver/v1";
+
+message Driver {
+    string id = 1;
+    string name = 2;
+    double lat = 3;
+    double lon = 4;
+}
+
+service DriverService {
+    rpc RegisterDriver(RegisterDriverRequest) returns (RegisterDriverResponse);
+    rpc FindAvailableDrivers(FindAvailableDriversRequest) returns (FindAvailableDriversResponse);
+    rpc UpdateDriverStatus(UpdateDriverStatusRequest) returns (UpdateDriverStatusResponse);
+}
+message RegisterDriverRequest {
+    string name = 1;
+    double lat = 2;
+    double lon = 3;
+}
+
+message RegisterDriverResponse {
+    Driver driver = 1;
+}
+
+message FindAvailableDriversRequest {
+    double lat = 1;
+    double lon = 2;
+}
+
+message FindAvailableDriversResponse {
+    repeated Driver drivers = 1;
+}
+
+message UpdateDriverStatusRequest {
+    string id = 1;
+    bool is_available = 2;
+}
+
+message UpdateDriverStatusResponse {
+    // Empty for now
+}

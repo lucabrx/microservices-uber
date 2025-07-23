@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package trip.v1;
+
+option go_package = "uber-clone/pkg/trip/v1";
+
+message Trip {
+    string id = 1;
+    string rider_id = 2;
+    string driver_id = 3;
+    string status = 4;
+    double price = 5;
+}
+
+service TripService {
+    rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+}
+
+message CreateTripRequest {
+    string rider_id = 1;
+    double start_lat = 2;
+    double start_lon = 3;
+    double end_lat = 4;
+    double end_lon = 5;
+}
+
+message CreateTripResponse {
+    Trip trip = 1;
+}

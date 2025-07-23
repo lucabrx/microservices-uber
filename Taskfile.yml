@@ -6,3 +6,32 @@ tasks:
     dir: ./cmd/gateway
     cmds:
       - go run .
+
+  start-driver:
+    desc: Start the Driver service
+    dir: ./cmd/driver
+    cmds:
+      - go run .
+
+  start-trip:
+    desc: Start the Trip service
+    dir: ./cmd/trip
+    cmds:
+      - go run .
+
+  start-all:
+    desc: Start Gateway, Driver, and Trip services
+    cmds:
+      - task: start-gateway
+      - task: start-driver
+      - task: start-trip
+
+  generate-proto:
+    desc: Generate Go and gRPC code from all proto files in api/proto
+    cmds:
+      - |
+        find api/proto -name "*.proto" | while read proto; do
+          protoc --go_out=. --go_opt=paths=source_relative \
+                 --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+                 "$proto"
+        done
