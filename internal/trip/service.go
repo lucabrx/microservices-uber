@@ -48,3 +48,26 @@ func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
 	}
 	return s.repo.CreateTrip(trip)
 }
+
+func (s *Service) CompleteTrip(tripID string) (models.Trip, error) {
+	trip, err := s.repo.GetTripByID(tripID)
+	if err != nil {
+		return models.Trip{}, err
+	}
+
+	trip.Status = "completed"
+	if err := s.repo.UpdateTrip(trip); err != nil {
+		return models.Trip{}, err
+	}
+
+	updateReq := &pb_driver.UpdateDriverStatusRequest{
+		Id:          trip.DriverID,
+		IsAvailable: true, // The driver is now free
+	}
+	_, err = s.driverClient.UpdateDriverStatus(context.Background(), updateReq)
+	if err != nil {
+		return models.Trip{}, err
+	}
+
+	return trip, nil
+}

@@ -62,3 +62,20 @@ func (h *HttpHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 
 	jsn.WriteJson(w, http.StatusCreated, res.Trip)
 }
+
+func (h *HttpHandler) CompleteTrip(w http.ResponseWriter, r *http.Request) {
+	tripID := r.URL.Query().Get("trip_id")
+	if tripID == "" {
+		http.Error(w, "trip_id is required", http.StatusBadRequest)
+		return
+	}
+
+	req := &pb_trip.CompleteTripRequest{TripId: tripID}
+	res, err := h.tripClient.CompleteTrip(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsn.WriteJson(w, http.StatusOK, res.Trip)
+}

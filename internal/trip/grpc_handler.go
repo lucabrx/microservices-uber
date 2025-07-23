@@ -29,3 +29,20 @@ func (h *GrpcHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 	}
 	return &pb.CreateTripResponse{Trip: &pb.Trip{Id: trip.ID, RiderId: trip.RiderID, DriverId: trip.DriverID, Status: trip.Status, Price: trip.Price}}, nil
 }
+
+func (h *GrpcHandler) CompleteTrip(ctx context.Context, req *pb.CompleteTripRequest) (*pb.CompleteTripResponse, error) {
+	trip, err := h.service.CompleteTrip(req.GetTripId())
+	if err != nil {
+		return nil, err
+	}
+
+	pbTrip := &pb.Trip{
+		Id:       trip.ID,
+		RiderId:  trip.RiderID,
+		DriverId: trip.DriverID,
+		Status:   trip.Status,
+		Price:    trip.Price,
+	}
+
+	return &pb.CompleteTripResponse{Trip: pbTrip}, nil
+}

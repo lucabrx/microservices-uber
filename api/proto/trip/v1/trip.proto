@@ -1,3 +1,4 @@
+// api/proto/trip/v1/trip.proto
 syntax = "proto3";
 
 package trip.v1;
@@ -14,6 +15,7 @@ message Trip {
 
 service TripService {
     rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+    rpc CompleteTrip(CompleteTripRequest) returns (CompleteTripResponse);
 }
 
 message CreateTripRequest {
@@ -25,5 +27,13 @@ message CreateTripRequest {
 }
 
 message CreateTripResponse {
+    Trip trip = 1;
+}
+
+message CompleteTripRequest {
+    string trip_id = 1;
+}
+
+message CompleteTripResponse {
     Trip trip = 1;
 }
