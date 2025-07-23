@@ -23,6 +23,21 @@ func main() {
 	s := grpc.NewServer()
 	pb.RegisterDriverServiceServer(s, handler)
 
+	kafkaProducer, err := driver.NewKafkaProducer("localhost:29092")
+	if err != nil {
+		log.Fatalf("Failed to create Kafka producer: %v", err)
+	}
+	defer kafkaProducer.Close()
+
+	kafkaConsumer, err := driver.NewKafkaConsumer("localhost:29092", "driver_service_group", service)
+	if err != nil {
+		log.Fatalf("Failed to create Kafka consumer: %v", err)
+	}
+	kafkaConsumer.SubscribeAndListen()
+
+	locationUpdater := driver.NewLocationUpdater(service, kafkaProducer)
+	locationUpdater.Start()
+
 	log.Println("Driver gRPC server listening at :50051")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

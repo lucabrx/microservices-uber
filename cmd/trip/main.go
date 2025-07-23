@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	// Connect to Driver service
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect to driver service: %v", err)
@@ -20,8 +19,14 @@ func main() {
 	defer conn.Close()
 	driverClient := pb_driver.NewDriverServiceClient(conn)
 
+	kafkaProducer, err := trip.NewKafkaProducer("localhost:29092")
+	if err != nil {
+		log.Fatalf("Failed to create Kafka producer for trip service: %v", err)
+	}
+	defer kafkaProducer.Close()
+
 	repo := trip.NewMemoryRepository()
-	service := trip.NewService(repo, driverClient)
+	service := trip.NewService(repo, driverClient, kafkaProducer)
 	handler := trip.NewGrpcHandler(service)
 
 	lis, err := net.Listen("tcp", ":50052")

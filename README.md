@@ -92,3 +92,117 @@ For a simplified start, focus on three core services:
 - **Tiltfile:** Configures Tilt to manage your local development environment.
 - **docker-compose.yaml:** Spins up external dependencies like Kafka and Zookeeper for local development.
 - **go.mod:** Go modules file for managing project dependencies.
+
+## Diagrams
+
+### High-Level System Architecture
+
+```mermaid
+graph TD
+    subgraph User Interaction
+        UserApp[User's Mobile App]
+    end
+
+    subgraph Our Backend Services
+        Gateway(Gateway Service)
+        Trip(Trip Service)
+        Driver(Driver Service)
+    end
+
+    subgraph Event Bus
+        Kafka(Apache Kafka)
+    end
+
+    UserApp -- HTTP/REST --> Gateway
+    Gateway -- gRPC --> Trip
+    Gateway -- gRPC --> Driver
+
+    Trip -- gRPC --> Driver
+    Trip -- Produces Events --> Kafka
+    Driver -- Produces & Consumes Events --> Kafka
+```
+
+- The User's App only ever talks to the Gateway Service using standard HTTP. It's the single front door to our system.
+- The Gateway acts as a translator, converting HTTP requests into internal gRPC calls to the other services.
+- The Trip Service and Driver Service communicate with each other directly using gRPC for urgent commands.
+- Both the Trip and Driver services also communicate asynchronously by sending events to Kafka. This allows them to announce state changes without being tightly coupled.
+
+### User Story - Booking a Trip
+
+This is the most important and complex flow. It beautifully demonstrates the hybrid use of both gRPC and Kafka to provide a fast user experience while maintaining a resilient system.
+
+```mermaid
+sequenceDiagram
+    participant UserApp as User App
+    participant Gateway as Gateway Service
+    participant Trip as Trip Service
+    participant Driver as Driver Service
+    participant Kafka as Apache Kafka
+
+    Note over UserApp, Kafka: The Synchronous "Fast Path" - The user gets an immediate response.
+
+    UserApp->>Gateway: 1. POST /trips (Book a trip)
+    Gateway->>Trip: 2. CreateTrip() (gRPC)
+    Trip->>Driver: 3. FindAvailableDrivers() (gRPC)
+    Driver-->>Trip: 4. Returns closest available driver (gRPC)
+
+    Note over Trip: Calculates price, saves trip as "requested".
+
+    Trip->>Kafka: 5. Publish "TripCreated" event
+    Trip-->>Gateway: 6. Returns trip object (status: "requested")
+    Gateway-->>UserApp: 7. 201 Created (Trip JSON)
+
+    Note over UserApp, Kafka: The Asynchronous "Slow Path" - Happens in the background.
+
+    Kafka->>Driver: 8. Delivers "TripCreated" event
+    Driver->>Driver: 9. Updates driver status to 'unavailable'
+```
+
+### Fast Path vs. Slow Path Explained
+
+**Fast Path (Steps 1–7):**  
+This sequence occurs in real time while the user waits for a response.
+
+1. The user's request is sent to the Gateway Service, which forwards it to the Trip Service via a fast gRPC call.
+2. The Trip Service needs to find a driver immediately, so it makes a synchronous gRPC call to the Driver Service.
+3. The Driver Service responds with a list of the closest available drivers.
+4. Instead of directly updating the driver status, the Trip Service publishes a `TripCreated` event to Kafka. This "fire-and-forget" action is extremely fast and decouples the services.
+5. The Trip Service responds to the Gateway Service with the trip details.
+6. The Gateway Service returns a confirmation to the user, who sees the booking instantly.
+
+**Slow Path (Steps 8–9):**  
+This sequence happens asynchronously, just milliseconds later.
+
+1. Kafka delivers the `TripCreated` event to any subscribed service, such as the Driver Service.
+2. Upon receiving the event, the Driver Service updates its internal database, marking the assigned driver as unavailable for future ride requests.
+
+**Why this design works:**
+
+- The user receives an instant response, making the app feel fast and responsive.
+- The system is resilient; even if the Driver Service is slow to process the update, the user's booking is already confirmed.
+- Decoupling via Kafka ensures scalability and fault tolerance.
+
+### User Story - Real-Time Location Updates
+
+This flow demonstrates how to handle real-time location updates from drivers using gRPC streaming.
+
+```mermaid
+sequenceDiagram
+    participant DriverService as Driver Service
+    participant Kafka as Apache Kafka
+    participant LocationService as (Future) WebSocket Service
+    participant UserApp as User App
+
+    loop Every 5 seconds
+        DriverService->>Kafka: 1. Publish "LocationUpdate" event
+    end
+
+    Kafka->>LocationService: 2. Consume "LocationUpdate" event
+    LocationService->>UserApp: 3. Push location data via WebSocket
+```
+
+In this flow, the Driver Service manages its own location data. At regular intervals, it sends simulated location updates by producing `LocationUpdate` events to a designated Kafka topic—without needing to know which services will consume them.
+
+Kafka acts as the event broker, receiving and distributing these updates.
+
+A future service, such as a WebSocket-based Location Service, subscribes to the Kafka topic. When it receives a location update for a driver that a user is tracking, it immediately pushes the new data to the user's app via a persistent WebSocket connection. This enables real-time movement of the car icon on the user's map.

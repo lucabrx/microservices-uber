@@ -10,12 +10,13 @@ import (
 )
 
 type Service struct {
-	repo         *MemoryRepository
-	driverClient pb_driver.DriverServiceClient
+	repo          *MemoryRepository
+	driverClient  pb_driver.DriverServiceClient
+	kafkaProducer *KafkaProducer
 }
 
-func NewService(repo *MemoryRepository, driverClient pb_driver.DriverServiceClient) *Service {
-	return &Service{repo: repo, driverClient: driverClient}
+func NewService(repo *MemoryRepository, driverClient pb_driver.DriverServiceClient, kafkaProducer *KafkaProducer) *Service {
+	return &Service{repo: repo, driverClient: driverClient, kafkaProducer: kafkaProducer}
 }
 
 func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
@@ -34,19 +35,24 @@ func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
 		return models.Trip{}, err
 	}
 
-	updateReq := &pb_driver.UpdateDriverStatusRequest{Id: closestDriver.Id, IsAvailable: false}
-	_, err = s.driverClient.UpdateDriverStatus(context.Background(), updateReq)
-	if err != nil {
-		return models.Trip{}, err
-	}
-
 	trip := models.Trip{
 		RiderID:  req.RiderID,
 		DriverID: closestDriver.Id,
 		Status:   "in_progress",
 		Price:    price,
 	}
-	return s.repo.CreateTrip(trip)
+	createdTrip, err := s.repo.CreateTrip(trip)
+	if err != nil {
+		return models.Trip{}, err
+	}
+
+	event := TripCreatedEvent{
+		TripID:   createdTrip.ID,
+		DriverID: createdTrip.DriverID,
+	}
+	s.kafkaProducer.ProduceTripCreated(event)
+
+	return createdTrip, nil
 }
 
 func (s *Service) CompleteTrip(tripID string) (models.Trip, error) {

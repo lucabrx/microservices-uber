@@ -55,3 +55,13 @@ func (r *MemoryRepository) GetAvailableDrivers() []models.Driver {
 	}
 	return available
 }
+
+func (r *MemoryRepository) GetAllDrivers() []models.Driver {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var all []models.Driver
+	for _, driver := range r.drivers {
+		all = append(all, driver)
+	}
+	return all
+}
