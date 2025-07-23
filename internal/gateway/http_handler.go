@@ -7,6 +7,7 @@ import (
 
 	pb_driver "github.com/lukabrx/uber-clone/api/proto/driver/v1"
 	pb_trip "github.com/lukabrx/uber-clone/api/proto/trip/v1"
+	"github.com/lukabrx/uber-clone/internal/jsn"
 )
 
 type HttpHandler struct {
@@ -29,7 +30,8 @@ func (h *HttpHandler) RegisterDriver(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(res)
+
+	jsn.WriteJson(w, http.StatusCreated, res.Driver)
 }
 
 func (h *HttpHandler) FindAvailableDrivers(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +44,8 @@ func (h *HttpHandler) FindAvailableDrivers(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(res)
+
+	jsn.WriteJson(w, http.StatusOK, res.Drivers)
 }
 
 func (h *HttpHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
@@ -56,5 +59,6 @@ func (h *HttpHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(res)
+
+	jsn.WriteJson(w, http.StatusCreated, res.Trip)
 }
