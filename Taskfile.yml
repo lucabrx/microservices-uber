@@ -1,0 +1,8 @@
+version: "3"
+
+tasks:
+  start-gateway:
+    desc: Start the Gateway service
+    dir: ./cmd/gateway
+    cmds:
+      - go run .
