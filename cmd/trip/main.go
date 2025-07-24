@@ -29,6 +29,9 @@ func main() {
 	service := trip.NewService(repo, driverClient, kafkaProducer)
 	handler := trip.NewGrpcHandler(service)
 
+	tripSimulator := trip.NewTripSimulator(service, kafkaProducer)
+	tripSimulator.Start()
+
 	lis, err := net.Listen("tcp", ":50052")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

@@ -1,4 +1,3 @@
-// api/proto/trip/v1/trip.proto
 syntax = "proto3";
 
 package trip.v1;
@@ -24,6 +23,7 @@ message CreateTripRequest {
     double start_lon = 3;
     double end_lat = 4;
     double end_lon = 5;
+    string driver_id = 6;
 }
 
 message CreateTripResponse {

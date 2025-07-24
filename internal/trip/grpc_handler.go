@@ -19,6 +19,7 @@ func NewGrpcHandler(service *Service) *GrpcHandler {
 func (h *GrpcHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest) (*pb.CreateTripResponse, error) {
 	trip, err := h.service.CreateTrip(models.Trip{
 		RiderID:  req.RiderId,
+		DriverID: req.DriverId,
 		StartLat: req.StartLat,
 		StartLon: req.StartLon,
 		EndLat:   req.EndLat,

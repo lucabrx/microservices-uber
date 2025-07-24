@@ -9,13 +9,13 @@ import (
 )
 
 type MemoryRepository struct {
-	trips map[string]models.Trip
+	trips map[string]*models.Trip
 	mu    sync.RWMutex
 }
 
 func NewMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
-		trips: make(map[string]models.Trip),
+		trips: make(map[string]*models.Trip),
 	}
 }
 
@@ -24,7 +24,7 @@ func (r *MemoryRepository) CreateTrip(trip models.Trip) (models.Trip, error) {
 	defer r.mu.Unlock()
 
 	trip.ID = uuid.New().String()
-	r.trips[trip.ID] = trip
+	r.trips[trip.ID] = &trip
 
 	return trip, nil
 }
@@ -37,17 +37,30 @@ func (r *MemoryRepository) GetTripByID(id string) (models.Trip, error) {
 	if !ok {
 		return models.Trip{}, errors.New("trip not found")
 	}
-	return trip, nil
+	return *trip, nil
 }
 
 func (r *MemoryRepository) UpdateTrip(trip models.Trip) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	_, ok := r.trips[trip.ID]
+	existing, ok := r.trips[trip.ID]
 	if !ok {
 		return errors.New("trip not found")
 	}
-	r.trips[trip.ID] = trip
+	*existing = trip
 	return nil
+}
+
+func (r *MemoryRepository) GetInProgressTrips() ([]models.Trip, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var inProgressTrips []models.Trip
+	for _, trip := range r.trips {
+		if trip.Status == "in_progress" {
+			inProgressTrips = append(inProgressTrips, *trip)
+		}
+	}
+	return inProgressTrips, nil
 }

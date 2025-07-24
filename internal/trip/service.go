@@ -28,7 +28,6 @@ func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
 	if len(findResp.Drivers) == 0 {
 		return models.Trip{}, errors.New("no available drivers")
 	}
-	closestDriver := findResp.Drivers[0]
 
 	price, err := pricecalculator.CalculatePrice(req.StartLat, req.StartLon, req.EndLat, req.EndLon)
 	if err != nil {
@@ -37,7 +36,7 @@ func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
 
 	trip := models.Trip{
 		RiderID:  req.RiderID,
-		DriverID: closestDriver.Id,
+		DriverID: req.DriverID,
 		Status:   "in_progress",
 		Price:    price,
 	}
@@ -46,11 +45,7 @@ func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
 		return models.Trip{}, err
 	}
 
-	event := TripCreatedEvent{
-		TripID:   createdTrip.ID,
-		DriverID: createdTrip.DriverID,
-	}
-	s.kafkaProducer.ProduceTripCreated(event)
+	s.kafkaProducer.ProduceTripCreated(createdTrip.ID, createdTrip.DriverID)
 
 	return createdTrip, nil
 }
@@ -76,4 +71,7 @@ func (s *Service) CompleteTrip(tripID string) (models.Trip, error) {
 	}
 
 	return trip, nil
+}
+func (s *Service) GetInProgressTrips() ([]models.Trip, error) {
+	return s.repo.GetInProgressTrips()
 }

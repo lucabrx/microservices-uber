@@ -9,9 +9,10 @@ import (
 
 const TripEventsTopic = "trip_events"
 
-type TripCreatedEvent struct {
-	TripID   string `json:"trip_id"`
-	DriverID string `json:"driver_id"`
+type TripEvent struct {
+	EventType string `json:"event_type"`
+	TripID    string `json:"trip_id"`
+	DriverID  string `json:"driver_id"`
 }
 
 type KafkaConsumer struct {
@@ -41,13 +42,36 @@ func (kc *KafkaConsumer) SubscribeAndListen() {
 	go func() {
 		for {
 			msg, err := kc.consumer.ReadMessage(-1)
-			if err == nil {
-				log.Printf("Received message from topic %s: %s\n", *msg.TopicPartition.Topic, string(msg.Value))
+			if err != nil {
+				// handle error
+				continue
+			}
 
-				var event TripCreatedEvent
-				if err := json.Unmarshal(msg.Value, &event); err == nil {
-					kc.service.UpdateDriverStatus(event.DriverID, false) // Mark as unavailable
+			log.Printf("Received message from topic %s", *msg.TopicPartition.Topic)
+
+			var event TripEvent
+			if err := json.Unmarshal(msg.Value, &event); err != nil {
+				log.Printf("Could not unmarshal event: %v", err)
+				continue
+			}
+
+			switch event.EventType {
+			case "TRIP_CREATED":
+				log.Printf("Processing trip creation for driver %s", event.DriverID)
+				err := kc.service.UpdateDriverStatus(event.DriverID, false)
+				if err != nil {
+					log.Printf("Error updating driver status for trip creation: %v", err)
 				}
+
+			case "TRIP_COMPLETED":
+				log.Printf("Processing trip completion for driver %s", event.DriverID)
+				err := kc.service.UpdateDriverStatus(event.DriverID, true)
+				if err != nil {
+					log.Printf("Error updating driver status for trip completion: %v", err)
+				}
+
+			default:
+				log.Printf("Unknown event type received: %s", event.EventType)
 			}
 		}
 	}()

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	pb_driver "github.com/lukabrx/uber-clone/api/proto/driver/v1"
 	pb_trip "github.com/lukabrx/uber-clone/api/proto/trip/v1"
 	"github.com/lukabrx/uber-clone/internal/jsn"
@@ -64,9 +65,9 @@ func (h *HttpHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HttpHandler) CompleteTrip(w http.ResponseWriter, r *http.Request) {
-	tripID := r.URL.Query().Get("trip_id")
+	tripID := chi.URLParam(r, "id")
 	if tripID == "" {
-		http.Error(w, "trip_id is required", http.StatusBadRequest)
+		http.Error(w, "trip_id is required in the URL path", http.StatusBadRequest)
 		return
 	}
 

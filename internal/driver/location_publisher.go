@@ -18,7 +18,7 @@ func (lu *LocationUpdater) Start() {
 	log.Println("Starting location updater...")
 	// Run this in a separate goroutine so it doesn't block the main thread
 	go func() {
-		ticker := time.NewTicker(5 * time.Second) // Publish updates every 5 seconds
+		ticker := time.NewTicker(60 * time.Second) // Publish updates every 5 seconds
 		defer ticker.Stop()
 
 		for range ticker.C {
