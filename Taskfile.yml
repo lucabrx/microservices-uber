@@ -26,6 +26,13 @@ tasks:
       - task: start-driver
       - task: start-trip
 
+  start-web:
+    desc: Start the web application
+    dir: ./web
+    cmds:
+      - pnpm install
+      - pnpm run dev
+
   generate-proto:
     desc: Generate Go and gRPC code from all proto files in api/proto
     cmds:
