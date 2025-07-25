@@ -11,41 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import {
-  findAvailableDrivers,
-  bookTrip,
-  Driver,
-  TripResponse,
-} from "~/lib/api";
+import { bookTrip, Driver, TripResponse } from "~/lib/api";
 
-type View = "form" | "drivers" | "confirmation";
+type View = "drivers" | "confirmation";
 
-export function BookRide() {
-  const [view, setView] = useState<View>("form");
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+interface BookRideProps {
+  drivers: Driver[];
+}
+
+export function BookRide({ drivers }: BookRideProps) {
+  const [view, setView] = useState<View>("drivers");
   const [trip, setTrip] = useState<TripResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-
-  const handleFindDrivers = async () => {
-    setIsLoading(true);
-    try {
-      const foundDrivers = await findAvailableDrivers(34.06, -118.26);
-      if (foundDrivers && foundDrivers.length > 0) {
-        setDrivers(foundDrivers);
-        setView("drivers");
-      } else {
-        console.log({
-          title: "No drivers available.",
-          description: "Please try again later.",
-        });
-      }
-    } catch (error) {
-      console.log({ title: "Error finding drivers.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBookTrip = async () => {
     if (!selectedDriver) return;
@@ -77,8 +55,7 @@ export function BookRide() {
   };
 
   const reset = () => {
-    setView("form");
-    setDrivers([]);
+    setView("drivers");
     setTrip(null);
     setSelectedDriver(null);
   };
@@ -113,61 +90,46 @@ export function BookRide() {
     );
   }
 
-  if (view === "drivers") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Drivers Near You</CardTitle>
-          <CardDescription>
-            Please select a driver to book your trip.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {drivers.map((driver) => (
-            <div
-              key={driver.id}
-              className={`flex items-center justify-between p-2 border rounded-md cursor-pointer ${
-                selectedDriver?.id === driver.id
-                  ? "bg-blue-100 border-blue-500"
-                  : ""
-              }`}
-              onClick={() => setSelectedDriver(driver)}
-            >
-              <div className="flex items-center gap-2">
-                <Car className="h-5 w-5 text-gray-600" />
-                <span>{driver.name}</span>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-        <CardFooter className="flex-col gap-2">
-          <Button
-            className="w-full"
-            onClick={handleBookTrip}
-            disabled={isLoading || !selectedDriver}
-          >
-            {isLoading ? "Booking..." : "Book Ride Now"}
-          </Button>
-          <Button variant="outline" className="w-full" onClick={reset}>
-            Cancel
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Book a Ride</CardTitle>
-        <CardDescription>Find a driver near you now.</CardDescription>
+        <CardTitle>Available Drivers Near You</CardTitle>
+        <CardDescription>
+          {drivers?.length > 0
+            ? "Please select a driver to book your trip."
+            : "Searching for drivers..."}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex justify-center p-6">
-        <Button size="lg" onClick={handleFindDrivers} disabled={isLoading}>
-          <User className="mr-2 h-5 w-5" />
-          {isLoading ? "Searching..." : "Find a Ride Near Me"}
-        </Button>
+      <CardContent className="space-y-2">
+        {drivers?.map((driver) => (
+          <div
+            key={driver.id}
+            className={`flex items-center justify-between p-2 border rounded-md cursor-pointer ${
+              selectedDriver?.id === driver.id
+                ? "bg-blue-100 border-blue-500"
+                : ""
+            }`}
+            onClick={() => setSelectedDriver(driver)}
+          >
+            <div className="flex items-center gap-2">
+              <Car className="h-5 w-5 text-gray-600" />
+              <span>{driver.name}</span>
+            </div>
+          </div>
+        ))}
       </CardContent>
+      <CardFooter className="flex-col gap-2">
+        <Button
+          className="w-full"
+          onClick={handleBookTrip}
+          disabled={isLoading || !selectedDriver || drivers?.length === 0}
+        >
+          {isLoading ? "Booking..." : "Book Ride Now"}
+        </Button>
+        <Button variant="outline" className="w-full" onClick={reset}>
+          Cancel
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

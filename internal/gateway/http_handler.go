@@ -2,14 +2,23 @@ package gateway
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/websocket"
 	pb_driver "github.com/lukabrx/uber-clone/api/proto/driver/v1"
 	pb_trip "github.com/lukabrx/uber-clone/api/proto/trip/v1"
 	"github.com/lukabrx/uber-clone/internal/jsn"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
 type HttpHandler struct {
 	driverClient pb_driver.DriverServiceClient
@@ -17,7 +26,7 @@ type HttpHandler struct {
 }
 
 func NewHttpHandler(driverClient pb_driver.DriverServiceClient, tripClient pb_trip.TripServiceClient) *HttpHandler {
-	return &HttpHandler{driverClient: driverClient, tripClient: tripClient}
+	return &HttpHandler{driverClient, tripClient}
 }
 
 func (h *HttpHandler) RegisterDriver(w http.ResponseWriter, r *http.Request) {
@@ -79,4 +88,35 @@ func (h *HttpHandler) CompleteTrip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsn.WriteJson(w, http.StatusOK, res.Trip)
+}
+
+func (h *HttpHandler) StreamAvailableDrivers(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("upgrade error:", err)
+		return
+	}
+	defer conn.Close()
+
+	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
+	lon, _ := strconv.ParseFloat(r.URL.Query().Get("lon"), 64)
+
+	for {
+		req := &pb_driver.FindAvailableDriversRequest{Lat: lat, Lon: lon}
+		res, err := h.driverClient.FindAvailableDrivers(r.Context(), req)
+		if err != nil {
+			log.Println("find available drivers error:", err)
+			if r.Context().Err() != nil {
+				break
+			}
+			continue
+		}
+
+		if err := conn.WriteJSON(res.Drivers); err != nil {
+			log.Println("write json error:", err)
+			break
+		}
+
+		time.Sleep(3 * time.Second)
+	}
 }

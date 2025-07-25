@@ -45,7 +45,11 @@ func main() {
 	r.Post("/drivers", httpHandler.RegisterDriver)
 	r.Get("/drivers/available", httpHandler.FindAvailableDrivers)
 	r.Post("/trips", httpHandler.CreateTrip)
+	r.Get("/ws/drivers/available", httpHandler.StreamAvailableDrivers)
+
 	r.Patch("/trips/{id}/complete", httpHandler.CompleteTrip)
+
+	r.Get("/ws/drivers/available", httpHandler.StreamAvailableDrivers)
 
 	log.Println("Gateway server starting on :8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
