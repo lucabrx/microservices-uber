@@ -46,10 +46,14 @@ func (kc *KafkaConsumer) SubscribeAndListen(ctx context.Context) {
 				msg, err := kc.consumer.ReadMessage(100) // 100ms timeout for reading messages
 				if err != nil {
 					// Ignore timeout errors
-					if err.(kafka.Error).Code() == kafka.ErrTimedOut {
+					if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
 						continue
 					}
-					log.Printf("Consumer error: %v (%v)\n", err, msg)
+					if msg != nil {
+						log.Printf("Consumer error: %v (%v)\n", err, msg)
+					} else {
+						log.Printf("Consumer error: %v\n", err)
+					}
 					continue
 				}
 
