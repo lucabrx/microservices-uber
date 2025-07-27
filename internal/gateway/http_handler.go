@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -23,10 +22,11 @@ var upgrader = websocket.Upgrader{
 type HttpHandler struct {
 	driverClient pb_driver.DriverServiceClient
 	tripClient   pb_trip.TripServiceClient
+	hub          *Hub
 }
 
-func NewHttpHandler(driverClient pb_driver.DriverServiceClient, tripClient pb_trip.TripServiceClient) *HttpHandler {
-	return &HttpHandler{driverClient, tripClient}
+func NewHttpHandler(driverClient pb_driver.DriverServiceClient, tripClient pb_trip.TripServiceClient, hub *Hub) *HttpHandler {
+	return &HttpHandler{driverClient, tripClient, hub}
 }
 
 func (h *HttpHandler) RegisterDriver(w http.ResponseWriter, r *http.Request) {
@@ -98,25 +98,31 @@ func (h *HttpHandler) StreamAvailableDrivers(w http.ResponseWriter, r *http.Requ
 	}
 	defer conn.Close()
 
+	h.hub.AddClient(conn)
+	defer h.hub.RemoveClient(conn)
+
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lon, _ := strconv.ParseFloat(r.URL.Query().Get("lon"), 64)
-
-	for {
-		req := &pb_driver.FindAvailableDriversRequest{Lat: lat, Lon: lon}
-		res, err := h.driverClient.FindAvailableDrivers(r.Context(), req)
-		if err != nil {
-			log.Println("find available drivers error:", err)
-			if r.Context().Err() != nil {
-				break
-			}
-			continue
-		}
-
+	res, err := h.driverClient.FindAvailableDrivers(
+		r.Context(),
+		&pb_driver.FindAvailableDriversRequest{Lat: lat, Lon: lon},
+	)
+	if err != nil {
+		log.Println("initial find available drivers error:", err)
+	} else {
 		if err := conn.WriteJSON(res.Drivers); err != nil {
-			log.Println("write json error:", err)
+			log.Println("initial write json error:", err)
+			return
+		}
+	}
+
+	// Keep the connection open and listen for new messages
+	for {
+		msgType, msg, err := conn.NextReader()
+		log.Println("receive message type:", msgType)
+		log.Println("receive message:", msg)
+		if err != nil {
 			break
 		}
-
-		time.Sleep(3 * time.Second)
 	}
 }

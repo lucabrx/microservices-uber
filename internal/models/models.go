@@ -10,15 +10,23 @@ type Driver struct {
 	Lon         float64 `json:"lon"`
 }
 
+type TripStatus string
+
+const (
+	TripStatusRequested  TripStatus = "requested"
+	TripStatusInProgress TripStatus = "in_progress"
+	TripStatusCompleted  TripStatus = "completed"
+)
+
 type Trip struct {
-	ID          string    `json:"id"`
-	RiderID     string    `json:"rider_id"`
-	DriverID    string    `json:"driver_id,omitempty"`
-	StartLat    float64   `json:"start_lat"`
-	StartLon    float64   `json:"start_lon"`
-	EndLat      float64   `json:"end_lat"`
-	EndLon      float64   `json:"end_lon"`
-	Status      string    `json:"status"` // e.g., "requested", "in_progress", "completed"
-	Price       float64   `json:"price,omitempty"`
-	RequestTime time.Time `json:"request_time"`
+	ID          string     `json:"id"`
+	RiderID     string     `json:"rider_id"`
+	DriverID    string     `json:"driver_id,omitempty"`
+	StartLat    float64    `json:"start_lat"`
+	StartLon    float64    `json:"start_lon"`
+	EndLat      float64    `json:"end_lat"`
+	EndLon      float64    `json:"end_lon"`
+	Status      TripStatus `json:"status"`
+	Price       float64    `json:"price,omitempty"`
+	RequestTime time.Time  `json:"request_time"`
 }

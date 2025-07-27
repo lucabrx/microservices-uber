@@ -75,3 +75,14 @@ func (r *MemoryRepository) IsDriverAvailable(id string) (bool, error) {
 	}
 	return driver.IsAvailable, nil
 }
+
+func (r *MemoryRepository) GetDriverByID(id string) (*models.Driver, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	driver, ok := r.drivers[id]
+	if !ok {
+		return nil, errors.New("driver not found")
+	}
+	return driver, nil
+}

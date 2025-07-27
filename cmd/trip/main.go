@@ -17,7 +17,6 @@ func main() {
 		log.Fatalf("did not connect to driver service: %v", err)
 	}
 	defer conn.Close()
-	driverClient := pb_driver.NewDriverServiceClient(conn)
 
 	kafkaProducer, err := trip.NewKafkaProducer("localhost:29092")
 	if err != nil {
@@ -25,12 +24,11 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
+	driverClient := pb_driver.NewDriverServiceClient(conn)
+
 	repo := trip.NewMemoryRepository()
 	service := trip.NewService(repo, driverClient, kafkaProducer)
 	handler := trip.NewGrpcHandler(service)
-
-	tripSimulator := trip.NewTripSimulator(service, kafkaProducer)
-	tripSimulator.Start()
 
 	lis, err := net.Listen("tcp", ":50052")
 	if err != nil {
@@ -38,6 +36,9 @@ func main() {
 	}
 	s := grpc.NewServer()
 	pb_trip.RegisterTripServiceServer(s, handler)
+
+	tripSimulator := trip.NewTripSimulator(service, kafkaProducer)
+	tripSimulator.Start()
 
 	log.Println("Trip gRPC server listening at :50052")
 	if err := s.Serve(lis); err != nil {

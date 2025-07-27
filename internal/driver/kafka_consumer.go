@@ -5,15 +5,8 @@ import (
 	"log"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/lukabrx/uber-clone/internal/types"
 )
-
-const TripEventsTopic = "trip_events"
-
-type TripEvent struct {
-	EventType string `json:"event_type"`
-	TripID    string `json:"trip_id"`
-	DriverID  string `json:"driver_id"`
-}
 
 type KafkaConsumer struct {
 	consumer *kafka.Consumer
@@ -21,7 +14,7 @@ type KafkaConsumer struct {
 }
 
 func NewKafkaConsumer(bootstrapServers, groupID string, service *Service) (*KafkaConsumer, error) {
-	c, err := kafka.NewConsumer(&kafka.ConfigMap{
+	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": bootstrapServers,
 		"group.id":          groupID,
 		"auto.offset.reset": "earliest",
@@ -29,19 +22,20 @@ func NewKafkaConsumer(bootstrapServers, groupID string, service *Service) (*Kafk
 	if err != nil {
 		return nil, err
 	}
-	return &KafkaConsumer{consumer: c, service: service}, nil
+	return &KafkaConsumer{consumer, service}, nil
 }
 
 func (kc *KafkaConsumer) SubscribeAndListen() {
-	err := kc.consumer.SubscribeTopics([]string{TripEventsTopic}, nil)
+	err := kc.consumer.SubscribeTopics([]string{types.TripEventsTopic}, nil)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to topic: %v", err)
 	}
 
 	log.Println("Subscribed to topic and listening for trip events...")
+	// Gorutine allow asynchronous processing of Kafka messages without blocking the main program.
 	go func() {
 		for {
-			msg, err := kc.consumer.ReadMessage(-1)
+			msg, err := kc.consumer.ReadMessage(-1) // wait forever == -1
 			if err != nil {
 				// handle error
 				continue
@@ -49,21 +43,21 @@ func (kc *KafkaConsumer) SubscribeAndListen() {
 
 			log.Printf("Received message from topic %s", *msg.TopicPartition.Topic)
 
-			var event TripEvent
+			var event types.TripEvent
 			if err := json.Unmarshal(msg.Value, &event); err != nil {
 				log.Printf("Could not unmarshal event: %v", err)
 				continue
 			}
 
 			switch event.EventType {
-			case "TRIP_CREATED":
+			case types.TripCreatedEvent:
 				log.Printf("Processing trip creation for driver %s", event.DriverID)
 				err := kc.service.UpdateDriverStatus(event.DriverID, false)
 				if err != nil {
 					log.Printf("Error updating driver status for trip creation: %v", err)
 				}
 
-			case "TRIP_COMPLETED":
+			case types.TripCompletedEvent:
 				log.Printf("Processing trip completion for driver %s", event.DriverID)
 				err := kc.service.UpdateDriverStatus(event.DriverID, true)
 				if err != nil {

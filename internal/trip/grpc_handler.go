@@ -28,7 +28,7 @@ func (h *GrpcHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CreateTripResponse{Trip: &pb.Trip{Id: trip.ID, RiderId: trip.RiderID, DriverId: trip.DriverID, Status: trip.Status, Price: trip.Price}}, nil
+	return &pb.CreateTripResponse{Trip: &pb.Trip{Id: trip.ID, RiderId: trip.RiderID, DriverId: trip.DriverID, Status: string(trip.Status), Price: trip.Price}}, nil
 }
 
 func (h *GrpcHandler) CompleteTrip(ctx context.Context, req *pb.CompleteTripRequest) (*pb.CompleteTripResponse, error) {
@@ -41,7 +41,7 @@ func (h *GrpcHandler) CompleteTrip(ctx context.Context, req *pb.CompleteTripRequ
 		Id:       trip.ID,
 		RiderId:  trip.RiderID,
 		DriverId: trip.DriverID,
-		Status:   trip.Status,
+		Status:   string(trip.Status),
 		Price:    trip.Price,
 	}
 

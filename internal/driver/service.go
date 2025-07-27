@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"log"
 	"math"
 	"sort"
 
@@ -8,35 +9,57 @@ import (
 )
 
 type Service struct {
-	repo *MemoryRepository
+	repo     *MemoryRepository
+	producer *KafkaProducer
 }
 
-func NewService(repo *MemoryRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *MemoryRepository, producer *KafkaProducer) *Service {
+	return &Service{repo: repo, producer: producer}
 }
 
-func (s *Service) RegisterDriver(driver models.Driver) (models.Driver, error) {
-	return s.repo.RegisterDriver(driver)
+func (s *Service) RegisterDriver(d models.Driver) (*models.Driver, error) {
+	driver, err := s.repo.RegisterDriver(d)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("New driver registered %s, publishing availability update", driver.ID)
+	s.producer.ProduceAvailableDriverUpdate(driver)
+
+	return &driver, nil
 }
 
 func (s *Service) UpdateDriverStatus(id string, isAvailable bool) error {
-	return s.repo.UpdateDriverStatus(id, isAvailable)
+	err := s.repo.UpdateDriverStatus(id, isAvailable)
+	if err != nil {
+		return err
+	}
+
+	driver, err := s.repo.GetDriverByID(id)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Driver %s status updated to available: %v, publishing update", id, isAvailable)
+	s.producer.ProduceAvailableDriverUpdate(*driver)
+
+	return nil
 }
 
 func (s *Service) FindClosestAvailableDrivers(lat, lon float64) []models.Driver {
 	drivers := s.repo.GetAvailableDrivers()
 
 	sort.Slice(drivers, func(i, j int) bool {
-		distI := haversine(lat, lon, drivers[i].Lat, drivers[i].Lon)
-		distJ := haversine(lat, lon, drivers[j].Lat, drivers[j].Lon)
+		distI := calculateDistance(lat, lon, drivers[i].Lat, drivers[i].Lon)
+		distJ := calculateDistance(lat, lon, drivers[j].Lat, drivers[j].Lon)
 		return distI < distJ
 	})
 
 	return drivers
 }
 
-// haversine calculates the distance between two points on Earth.
-func haversine(lat1, lon1, lat2, lon2 float64) float64 {
+// calculateDistance calculates the distance between two points on Earth.
+func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	const R = 6371 // Earth radius in kilometers
 	dLat := (lat2 - lat1) * (math.Pi / 180.0)
 	dLon := (lon2 - lon1) * (math.Pi / 180.0)

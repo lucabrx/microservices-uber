@@ -15,28 +15,25 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	// Wiring: Repository -> Service -> Handler
-	repo := driver.NewMemoryRepository()
-	service := driver.NewService(repo)
-	handler := driver.NewGrpcHandler(service)
-
-	s := grpc.NewServer()
-	pb.RegisterDriverServiceServer(s, handler)
-
 	kafkaProducer, err := driver.NewKafkaProducer("localhost:29092")
 	if err != nil {
 		log.Fatalf("Failed to create Kafka producer: %v", err)
 	}
 	defer kafkaProducer.Close()
 
+	// Wiring: Repository -> Service -> Handler
+	repo := driver.NewMemoryRepository()
+	service := driver.NewService(repo, kafkaProducer)
+	handler := driver.NewGrpcHandler(service)
+
+	s := grpc.NewServer()
+	pb.RegisterDriverServiceServer(s, handler)
+
 	kafkaConsumer, err := driver.NewKafkaConsumer("localhost:29092", "driver_service_group", service)
 	if err != nil {
 		log.Fatalf("Failed to create Kafka consumer: %v", err)
 	}
 	kafkaConsumer.SubscribeAndListen()
-
-	locationUpdater := driver.NewLocationUpdater(service, kafkaProducer)
-	locationUpdater.Start()
 
 	log.Println("Driver gRPC server listening at :50051")
 	if err := s.Serve(lis); err != nil {

@@ -5,18 +5,11 @@ import (
 	"log"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/lukabrx/uber-clone/internal/types"
 )
-
-var TripEventsTopic = "trip_events"
 
 type KafkaProducer struct {
 	producer *kafka.Producer
-}
-
-type TripEvent struct {
-	EventType string `json:"event_type"`
-	TripID    string `json:"trip_id"`
-	DriverID  string `json:"driver_id"`
 }
 
 func NewKafkaProducer(bootstrapServers string) (*KafkaProducer, error) {
@@ -28,8 +21,8 @@ func NewKafkaProducer(bootstrapServers string) (*KafkaProducer, error) {
 }
 
 func (kp *KafkaProducer) ProduceTripCreated(tripID, driverID string) {
-	event := TripEvent{
-		EventType: "TRIP_CREATED",
+	event := types.TripEvent{
+		EventType: types.TripCreatedEvent,
 		TripID:    tripID,
 		DriverID:  driverID,
 	}
@@ -40,7 +33,7 @@ func (kp *KafkaProducer) ProduceTripCreated(tripID, driverID string) {
 	}
 
 	err = kp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &TripEventsTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &types.TripEventsTopic, Partition: kafka.PartitionAny},
 		Value:          value,
 		Key:            []byte(event.TripID),
 	}, nil)
@@ -57,8 +50,8 @@ func (kp *KafkaProducer) Close() {
 }
 
 func (kp *KafkaProducer) ProduceTripCompleted(tripID, driverID string) {
-	event := TripEvent{
-		EventType: "TRIP_COMPLETED",
+	event := types.TripEvent{
+		EventType: types.TripCompletedEvent,
 		TripID:    tripID,
 		DriverID:  driverID,
 	}
@@ -68,7 +61,7 @@ func (kp *KafkaProducer) ProduceTripCompleted(tripID, driverID string) {
 		return
 	}
 	err = kp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &TripEventsTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &types.TripEventsTopic, Partition: kafka.PartitionAny},
 		Value:          value,
 		Key:            []byte(event.TripID),
 	}, nil)

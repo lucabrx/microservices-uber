@@ -17,13 +17,10 @@ func NewTripSimulator(service *Service, producer *KafkaProducer) *TripSimulator 
 	}
 }
 
-// Start begins the simulation loop.
 func (ts *TripSimulator) Start() {
 	log.Println("Starting trip completion simulator...")
-	// Run this in a separate goroutine so it doesn't block the main thread.
 	go func() {
-		// Set the ticker to run every 2 minutes.
-		ticker := time.NewTicker(2 * time.Minute)
+		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -40,7 +37,6 @@ func (ts *TripSimulator) Start() {
 			}
 
 			for _, trip := range inProgressTrips {
-				// 1. Mark the trip as completed in the trip service's database.
 				_, err := ts.service.CompleteTrip(trip.ID)
 				if err != nil {
 					log.Printf("Simulator failed to complete trip %s: %v", trip.ID, err)
@@ -49,8 +45,6 @@ func (ts *TripSimulator) Start() {
 
 				log.Printf("Simulator completed trip %s for driver %s", trip.ID, trip.DriverID)
 
-				// 2. Produce an event to Kafka to notify other services.
-				ts.producer.ProduceTripCompleted(trip.ID, trip.DriverID)
 			}
 		}
 	}()

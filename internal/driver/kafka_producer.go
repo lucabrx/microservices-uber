@@ -6,23 +6,22 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/lukabrx/uber-clone/internal/models"
+	"github.com/lukabrx/uber-clone/internal/types"
 )
-
-var DriverLocationTopic = "driver_locations"
 
 type KafkaProducer struct {
 	producer *kafka.Producer
 }
 
 func NewKafkaProducer(bootstrapServers string) (*KafkaProducer, error) {
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
 	if err != nil {
 		return nil, err
 	}
-	return &KafkaProducer{producer: p}, nil
+	return &KafkaProducer{producer}, nil
 }
 
-func (kp *KafkaProducer) ProduceLocationUpdate(driver models.Driver) {
+func (kp *KafkaProducer) ProduceAvailableDriverUpdate(driver models.Driver) {
 	value, err := json.Marshal(driver)
 	if err != nil {
 		log.Printf("Failed to marshal driver location: %v", err)
@@ -30,7 +29,7 @@ func (kp *KafkaProducer) ProduceLocationUpdate(driver models.Driver) {
 	}
 
 	err = kp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &DriverLocationTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &types.DriverLocationTopic, Partition: kafka.PartitionAny},
 		Value:          value,
 		Key:            []byte(driver.ID),
 	}, nil)
@@ -41,6 +40,7 @@ func (kp *KafkaProducer) ProduceLocationUpdate(driver models.Driver) {
 }
 
 func (kp *KafkaProducer) Close() {
+	// Wait up to 15 seconds for all messages to be sent then close the producer
 	kp.producer.Flush(15 * 1000)
 	kp.producer.Close()
 }

@@ -2,7 +2,6 @@ package trip
 
 import (
 	"context"
-	"errors"
 
 	pb_driver "github.com/lukabrx/uber-clone/api/proto/driver/v1"
 	"github.com/lukabrx/uber-clone/internal/models"
@@ -20,15 +19,6 @@ func NewService(repo *MemoryRepository, driverClient pb_driver.DriverServiceClie
 }
 
 func (s *Service) CreateTrip(req models.Trip) (models.Trip, error) {
-	findReq := &pb_driver.FindAvailableDriversRequest{Lat: req.StartLat, Lon: req.StartLon}
-	findResp, err := s.driverClient.FindAvailableDrivers(context.Background(), findReq)
-	if err != nil {
-		return models.Trip{}, err
-	}
-	if len(findResp.Drivers) == 0 {
-		return models.Trip{}, errors.New("no available drivers")
-	}
-
 	price, err := pricecalculator.CalculatePrice(req.StartLat, req.StartLon, req.EndLat, req.EndLon)
 	if err != nil {
 		return models.Trip{}, err
@@ -56,7 +46,7 @@ func (s *Service) CompleteTrip(tripID string) (models.Trip, error) {
 		return models.Trip{}, err
 	}
 
-	trip.Status = "completed"
+	trip.Status = models.TripStatusCompleted
 	if err := s.repo.UpdateTrip(trip); err != nil {
 		return models.Trip{}, err
 	}
@@ -69,6 +59,8 @@ func (s *Service) CompleteTrip(tripID string) (models.Trip, error) {
 	if err != nil {
 		return models.Trip{}, err
 	}
+
+	s.kafkaProducer.ProduceTripCompleted(trip.ID, trip.DriverID)
 
 	return trip, nil
 }
