@@ -133,29 +133,30 @@ This is the most important and complex flow. It beautifully demonstrates the hyb
 
 ```mermaid
 sequenceDiagram
-    participant UserApp as User App
+    actor UserApp
     participant Gateway as Gateway Service
-    participant Trip as Trip Service
     participant Driver as Driver Service
+    participant Trip as Trip Service
     participant Kafka as Apache Kafka
 
-    Note over UserApp, Kafka: The Synchronous "Fast Path" - The user gets an immediate response.
+    Note over UserApp, Driver: Step 1: Client finds available drivers first.
+    UserApp->>Gateway: GET /drivers/available?lat=...&lon=...
+    Gateway->>Driver: FindAvailableDrivers() (gRPC)
+    Driver-->>Gateway: Returns list of available drivers
+    Gateway-->>UserApp: 200 OK (List of drivers)
 
-    UserApp->>Gateway: 1. POST /trips (Book a trip)
-    Gateway->>Trip: 2. CreateTrip() (gRPC)
-    Trip->>Driver: 3. FindAvailableDrivers() (gRPC)
-    Driver-->>Trip: 4. Returns closest available driver (gRPC)
+    Note over UserApp, Kafka: Step 2: Client books a specific driver, gets immediate confirmation.
+    UserApp->>Gateway: POST /trips (with selected driver_id)
+    Gateway->>Trip: CreateTrip() (gRPC)
+    Trip->>Trip: Saves trip as "in_progress"
+    Trip->>Kafka: Publishes "TripCreated" event
+    Trip-->>Gateway: Returns trip object
+    Gateway-->>UserApp: 201 Created (Trip Confirmation)
 
-    Note over Trip: Calculates price, saves trip as "requested".
-
-    Trip->>Kafka: 5. Publish "TripCreated" event
-    Trip-->>Gateway: 6. Returns trip object (status: "requested")
-    Gateway-->>UserApp: 7. 201 Created (Trip JSON)
-
-    Note over UserApp, Kafka: The Asynchronous "Slow Path" - Happens in the background.
-
-    Kafka->>Driver: 8. Delivers "TripCreated" event
-    Driver->>Driver: 9. Updates driver status to 'unavailable'
+    Note over Kafka, Driver: Step 3: Driver service updates its state asynchronously.
+    Kafka->>Driver: Delivers "TripCreated" event
+    Driver->>Driver: Updates driver status to 'unavailable'
+    Driver->>Kafka: Publishes "DriverLocationUpdate" event
 ```
 
 ### Fast Path vs. Slow Path Explained
@@ -188,17 +189,28 @@ This flow demonstrates how to handle real-time location updates from drivers usi
 
 ```mermaid
 sequenceDiagram
-    participant DriverService as Driver Service
+    actor UserApp
+    participant Gateway as Gateway Service
+    participant Driver as Driver Service
     participant Kafka as Apache Kafka
-    participant LocationService as (Future) WebSocket Service
-    participant UserApp as User App
 
-    loop Every 5 seconds
-        DriverService->>Kafka: 1. Publish "LocationUpdate" event
-    end
+    Note over UserApp, Gateway: Step 1: Client connects to WebSocket for live updates.
+    UserApp->>Gateway: Opens WebSocket to /ws/drivers/available
+    Gateway->>Gateway: Adds client to WebSocket Hub
+    Gateway->>Driver: FindAvailableDrivers() (gRPC)
+    Driver-->>Gateway: Returns initial list of drivers
+    Gateway->>UserApp: Pushes initial driver list (WebSocket)
 
-    Kafka->>LocationService: 2. Consume "LocationUpdate" event
-    LocationService->>UserApp: 3. Push location data via WebSocket
+    Note over Driver, Kafka: Step 2: A driver's status changes (e.g., trip completed).
+    Driver->>Driver: Driver status updated (e.g. isAvailable: true)
+    Driver->>Kafka: Publishes "DriverLocationUpdate" event
+
+    Note over Kafka, UserApp: Step 3: Gateway receives trigger and broadcasts a fresh, full list.
+    Kafka->>Gateway: Delivers "DriverLocationUpdate" event
+    Gateway->>Driver: FindAvailableDrivers() (gRPC)
+    Driver-->>Gateway: Returns NEW full list of available drivers
+    Gateway->>UserApp: Broadcasts fresh driver list to ALL clients (WebSocket)
+
 ```
 
 In this flow, the Driver Service manages its own location data. At regular intervals, it sends simulated location updates by producing `LocationUpdate` events to a designated Kafka topic—without needing to know which services will consume them.
