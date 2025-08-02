@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/lukabrx/uber-clone/api/proto/auth/v1";
+
+service AuthService {
+  rpc AuthenticateWithGoogle(AuthenticateWithGoogleRequest) returns (AuthenticateWithGoogleResponse);
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+}
+
+message AuthenticateWithGoogleRequest {
+  string code = 1;
+}
+
+message AuthenticateWithGoogleResponse {
+  string token = 1;
+}
+
+message VerifyTokenRequest {
+  string token = 1;
+}
+
+message VerifyTokenResponse {
+  string user_id = 1;  // later we need to add more fields!
+}

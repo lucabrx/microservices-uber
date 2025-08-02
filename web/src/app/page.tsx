@@ -6,9 +6,14 @@ import { RegisterDriverForm } from "~/components/register-driver-form";
 import { AvailableDriversSidebar } from "~/components/available-drivers-sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Driver } from "~/lib/api";
+import { Button } from "~/components/ui/button";
+import { useAuth } from "~/components/auth-context";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const { isLoggedIn } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     const ws = new WebSocket(
@@ -36,6 +41,20 @@ export default function HomePage() {
       ws.close();
     };
   }, []);
+
+  if (!isLoggedIn) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+        <h1 className="text-4xl font-bold mb-8">Welcome to Uber Clone</h1>
+        <p className="mb-8">Please log in to continue.</p>
+        <Button
+          onClick={() => router.push("http://localhost:8080/auth/google/login")}
+        >
+          Login with Google
+        </Button>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">

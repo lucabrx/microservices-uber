@@ -24,6 +24,17 @@ export interface TripResponse {
   price: number;
 }
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 export const registerDriver = async (
   name: string,
   lat: number,
@@ -31,7 +42,7 @@ export const registerDriver = async (
 ): Promise<Driver> => {
   const response = await fetch(`${API_BASE_URL}/drivers`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ name, lat, lon }),
   });
   if (!response.ok) throw new Error("Failed to register driver");
@@ -54,7 +65,7 @@ export const bookTrip = async (
 ): Promise<TripResponse> => {
   const response = await fetch(`${API_BASE_URL}/trips`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(tripRequest),
   });
   if (!response.ok) {

@@ -19,6 +19,12 @@ tasks:
     cmds:
       - go run .
 
+  start-auth:
+    desc: Start the Auth service
+    dir: ./cmd/auth
+    cmds:
+      - go run .
+
   start-all:
     desc: Start Gateway, Driver, and Trip services
     cmds:
