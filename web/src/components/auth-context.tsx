@@ -6,39 +6,89 @@ import {
   useState,
   useEffect,
   ReactNode,
+  useCallback,
 } from "react";
+import { User, initializeApi, getMe } from "~/lib/api";
 
 interface AuthContextType {
-  token: string | null;
+  accessToken: string | null;
+  user: User | null;
   isLoggedIn: boolean;
-  login: (token: string) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem("authToken");
-    if (storedToken) {
-      setToken(storedToken);
-    }
+  const logout = useCallback(() => {
+    setAccessToken(null);
+    setUser(null);
+    localStorage.removeItem("user");
   }, []);
 
-  const login = (newToken: string) => {
-    localStorage.setItem("authToken", newToken);
-    setToken(newToken);
-  };
+  const login = useCallback((token: string, user: User) => {
+    setAccessToken(token);
+    setUser(user);
+    localStorage.setItem("user", JSON.stringify(user));
+  }, []);
 
-  const logout = () => {
-    localStorage.removeItem("authToken");
-    setToken(null);
-  };
+  useEffect(() => {
+    initializeApi(
+      () => accessToken,
+      (token) => setAccessToken(token),
+      logout
+    );
+  }, [accessToken, logout]);
+
+  useEffect(() => {
+    const authenticateUser = async () => {
+      try {
+        const refreshResponse = await fetch("/api/auth/refresh-proxy", {
+          method: "POST",
+        });
+
+        if (!refreshResponse.ok) {
+          throw new Error("No active session");
+        }
+
+        const { access_token } = await refreshResponse.json();
+
+        initializeApi(
+          () => access_token,
+          () => {},
+          logout
+        );
+
+        const currentUser = await getMe();
+
+        login(access_token, currentUser);
+      } catch (error) {
+        logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    authenticateUser();
+  }, [login, logout]);
 
   return (
-    <AuthContext.Provider value={{ token, isLoggedIn: !!token, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        accessToken,
+        user,
+        isLoggedIn: !!user && !!accessToken,
+        login,
+        logout,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

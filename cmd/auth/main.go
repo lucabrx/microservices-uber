@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	pb "github.com/lukabrx/uber-clone/api/proto/auth/v1"
 	"github.com/lukabrx/uber-clone/internal/auth"
+	"github.com/lukabrx/uber-clone/internal/user"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc"
@@ -52,7 +53,10 @@ func main() {
 		log.Fatalf("failed to create paseto maker: %v", err)
 	}
 
-	service := auth.NewService(pasetoMaker, googleOauthConfig)
+	userRepo := user.NewMemoryRepository()
+	refreshTokenRepo := auth.NewRefreshTokenRepository()
+
+	service := auth.NewService(pasetoMaker, googleOauthConfig, userRepo, refreshTokenRepo)
 	handler := auth.NewGrpcHandler(service)
 
 	lis, err := net.Listen("tcp", ":50053")

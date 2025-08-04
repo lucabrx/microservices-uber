@@ -1,5 +1,11 @@
 const API_BASE_URL = "http://localhost:8080";
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface Driver {
   id: string;
   name: string;
@@ -24,29 +30,81 @@ export interface TripResponse {
   price: number;
 }
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("authToken");
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  return headers;
+let getAccessToken: () => string | null = () => null;
+let setAccessToken: (token: string | null) => void = () => {};
+let logout: () => void = () => {};
+
+export const initializeApi = (
+  _getAccessToken: () => string | null,
+  _setAccessToken: (token: string | null) => void,
+  _logout: () => void
+) => {
+  getAccessToken = _getAccessToken;
+  setAccessToken = _setAccessToken;
+  logout = _logout;
 };
 
-export const registerDriver = async (
-  name: string,
-  lat: number,
-  lon: number
-): Promise<Driver> => {
-  const response = await fetch(`${API_BASE_URL}/drivers`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ name, lat, lon }),
+let refreshPromise: Promise<string | null> | null = null;
+const refreshToken = async (): Promise<string | null> => {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+  refreshPromise = new Promise(async (resolve, reject) => {
+    try {
+      const response = await fetch(`/api/auth/refresh-proxy`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        logout();
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      const data = await response.json();
+      const newAccessToken = data.access_token;
+      setAccessToken(newAccessToken);
+      resolve(newAccessToken);
+    } catch (error) {
+      reject(error);
+    } finally {
+      refreshPromise = null;
+    }
   });
-  if (!response.ok) throw new Error("Failed to register driver");
-  return response.json();
+  return refreshPromise;
+};
+
+const apiClient = async (
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const token = getAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  headers.set("Content-Type", "application/json");
+
+  let response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401) {
+    try {
+      const newToken = await refreshToken();
+      if (newToken) {
+        headers.set("Authorization", `Bearer ${newToken}`);
+        response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+          ...options,
+          headers,
+        });
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  return response;
 };
 
 export const findAvailableDrivers = async (
@@ -60,12 +118,30 @@ export const findAvailableDrivers = async (
   return response.json();
 };
 
+export const getMe = async (): Promise<User> => {
+  const response = await apiClient("me");
+  if (!response.ok) throw new Error("Failed to fetch user data");
+  return response.json();
+};
+
+export const registerDriver = async (
+  name: string,
+  lat: number,
+  lon: number
+): Promise<Driver> => {
+  const response = await apiClient("drivers", {
+    method: "POST",
+    body: JSON.stringify({ name, lat, lon }),
+  });
+  if (!response.ok) throw new Error("Failed to register driver");
+  return response.json();
+};
+
 export const bookTrip = async (
   tripRequest: TripRequest
 ): Promise<TripResponse> => {
-  const response = await fetch(`${API_BASE_URL}/trips`, {
+  const response = await apiClient("trips", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(tripRequest),
   });
   if (!response.ok) {

@@ -101,6 +101,7 @@ func main() {
 
 	r.Get("/auth/google/login", httpHandler.HandleGoogleLogin)
 	r.Get("/auth/google/callback", httpHandler.HandleGoogleCallback)
+	r.Post("/auth/refresh", httpHandler.HandleRefreshToken)
 	r.Get("/ws/drivers/available", httpHandler.StreamAvailableDrivers)
 
 	r.Group(func(r chi.Router) {
@@ -110,6 +111,7 @@ func main() {
 		r.Get("/drivers/available", httpHandler.FindAvailableDrivers)
 		r.Post("/trips", httpHandler.CreateTrip)
 		r.Patch("/trips/{id}/complete", httpHandler.CompleteTrip)
+		r.Get("/me", httpHandler.HandleGetMe)
 	})
 
 	log.Println("Gateway server starting on :8080")

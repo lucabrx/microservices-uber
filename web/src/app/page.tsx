@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user, logout, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -42,7 +42,15 @@ export default function HomePage() {
     };
   }, []);
 
-  if (!isLoggedIn) {
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </main>
+    );
+  }
+
+  if (!isLoggedIn || !user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
         <h1 className="text-4xl font-bold mb-8">Welcome to Uber Clone</h1>
@@ -58,7 +66,12 @@ export default function HomePage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
-      <h1 className="text-4xl font-bold mb-8">Uber Clone</h1>
+      <header className="w-full max-w-6xl flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold">Welcome, {user.name}!</h1>
+        <Button onClick={logout} variant="outline">
+          Logout
+        </Button>
+      </header>
       <div className="grid md:grid-cols-2 gap-8 w-full max-w-6xl">
         <div className="md:col-span-1">
           <AvailableDriversSidebar drivers={drivers} />

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -169,9 +170,20 @@ func (h *HttpHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true, // Set to true in production
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+	})
+
 	frontendURL := os.Getenv("FRONTEND_URL")
-	redirectURL := frontendURL + "/auth/callback?token=" + res.Token
+	redirectURL := frontendURL + "/auth/callback?token=" + res.AccessToken
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+
 }
 
 type contextKey string
@@ -202,4 +214,46 @@ func (h *HttpHandler) AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), UserIDKey, res.UserId)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (h *HttpHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		jsn.ErrorJson(w, errors.New("refresh token not found"), http.StatusUnauthorized)
+		return
+	}
+
+	res, err := h.authClient.RefreshToken(r.Context(), &pb_auth.RefreshTokenRequest{RefreshToken: cookie.Value})
+	if err != nil {
+		jsn.ErrorJson(w, err, http.StatusUnauthorized)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+	})
+
+	jsn.WriteJson(w, http.StatusOK, map[string]string{"access_token": res.AccessToken})
+}
+
+func (h *HttpHandler) HandleGetMe(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		jsn.ErrorJson(w, errors.New("user ID not found in context"), http.StatusInternalServerError)
+		return
+	}
+
+	res, err := h.authClient.GetUser(r.Context(), &pb_auth.GetUserRequest{UserId: userID})
+	if err != nil {
+		jsn.ErrorJson(w, err, http.StatusNotFound)
+		return
+	}
+
+	jsn.WriteJson(w, http.StatusOK, res.User)
 }

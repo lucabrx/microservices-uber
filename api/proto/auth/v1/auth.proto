@@ -7,6 +7,14 @@ option go_package = "github.com/lukabrx/uber-clone/api/proto/auth/v1";
 service AuthService {
   rpc AuthenticateWithGoogle(AuthenticateWithGoogleRequest) returns (AuthenticateWithGoogleResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse); 
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
 }
 
 message AuthenticateWithGoogleRequest {
@@ -14,7 +22,9 @@ message AuthenticateWithGoogleRequest {
 }
 
 message AuthenticateWithGoogleResponse {
-  string token = 1;
+  string access_token = 1;
+  string refresh_token = 2;
+  User user = 3;
 }
 
 message VerifyTokenRequest {
@@ -22,5 +32,22 @@ message VerifyTokenRequest {
 }
 
 message VerifyTokenResponse {
-  string user_id = 1;  // later we need to add more fields!
+  string user_id = 1;
+}
+
+message RefreshTokenRequest {
+    string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
 }
